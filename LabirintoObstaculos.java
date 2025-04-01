@@ -1,7 +1,6 @@
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
-
 import busca.Heuristica;
 import busca.BuscaLargura;
 import busca.BuscaProfundidade;
@@ -9,6 +8,7 @@ import busca.AEstrela;
 import busca.Estado;
 import busca.MostraStatusConsole;
 import busca.Nodo;
+import busca.SubidaMontanha;
 import javax.swing.JOptionPane;
 
 public class LabirintoObstaculos implements Estado, Heuristica {
@@ -259,7 +259,7 @@ public class LabirintoObstaculos implements Estado, Heuristica {
         try {
             dimensao = Integer.parseInt(JOptionPane.showInputDialog(null,"Entre com a dimensão do Puzzle!"));
             porcentagemObstaculos = Integer.parseInt(JOptionPane.showInputDialog(null,"Porcentagem de obstáculos!"));
-            qualMetodo = Integer.parseInt(JOptionPane.showInputDialog(null,"1 - Profundidade\n2 - Largura"));
+            qualMetodo = Integer.parseInt(JOptionPane.showInputDialog(null,"1 - Profundidade\n2 - Largura\n3 - AEstrela"));
             estadoInicial = new LabirintoObstaculos(dimensao, "estado inicial", porcentagemObstaculos);
             
             switch (qualMetodo) {
@@ -270,6 +270,14 @@ public class LabirintoObstaculos implements Estado, Heuristica {
                 case 2: 
                         System.out.println("busca em LARGURA");
                         n = new BuscaLargura(new MostraStatusConsole()).busca(estadoInicial);
+                        break;
+                case 3:
+                        System.out.println("busca em AEstrela");
+                        n = new AEstrela(new MostraStatusConsole()).busca(estadoInicial);
+                        break;
+                case 4:
+                        System.out.println("busca em SUBIDA MONTANHA");
+                        n = new SubidaMontanha(new MostraStatusConsole()).busca(estadoInicial);
                         break;
                 default: 
                         n = null;
