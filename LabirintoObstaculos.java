@@ -13,64 +13,55 @@ import javax.swing.JOptionPane;
 
 public class LabirintoObstaculos implements Estado, Heuristica {
     
-    @Override
-    public String getDescricao() {
-        return "O jogo do labirinto é uma matriz NxM, onde são sorteadas duas peças:\n"
-        		+ "\n"
-        		+ "peça que representa o portal de entrada no labirinto;\n"
-        		+ "peça que representa o portal de saída no labirinto.\n"
-        		+ "A Entrada é o portal em que um personagem qualquer inicia no "
-        		+ "labirinto e precisa se movimentar até a Saída. "
-        		+ "O foco aqui, é chegar na Saída pelo menor número de movimentos (células). "
-        		+ "Entretanto, não pode ser nas diagonais.";
-    }
+    final char matriz[][];
+    int linhaEntrada, colunaEntrada; // Posição do primeiro "E"
+    int linhaEntrada2, colunaEntrada2; // Posição do segundo "E"
+    int linhaSaida, colunaSaida; // Posição do "S"
+    final String op;
+    boolean primeiraFaseConcluida; // Indica se o "E" chegou ao "S"
 
-    final char matriz[][]; // preferir "immutable objects"
-    int linhaEntrada, colunaEntrada; //guarda a posição do Entrada/E
-    int linhaSaida, colunaSaida;
-    final String op; // operacao que gerou o estado
-
-    
-    //atenção.... matrizes precisam ser clonadas ao gerarmos novos estados
-    char [][]clonar(char origem[][]) {
-        char destino[][] = new char[origem.length][origem.length];
+    char[][] clonar(char origem[][]) {
+        char destino[][] = new char[origem.length][origem[0].length];
         for (int i = 0; i < origem.length; i++) {
-            for (int j = 0; j < origem.length; j++) {
+            for (int j = 0; j < origem[0].length; j++) {
                 destino[i][j] = origem[i][j];
             }
         }
         return destino;
     }
-    
-    /**
-     * construtor para o estado gerado na evolução/resolução do problema, recebe cada valor de atributo
-     */
-    public LabirintoObstaculos(char m[][], int linhaEntrada, int colunaEntrada, int linhaSaida, int colunaSaida, String o) {
-        this.matriz = m; //ter certeza que m foi clonado antes de entrar no construtor
-        this.linhaEntrada = linhaEntrada;
-        this.colunaEntrada = colunaEntrada;
-        this.linhaSaida = linhaSaida;
-        this.colunaSaida = colunaSaida;
+
+    // Construtor para estados gerados na evolução
+    public LabirintoObstaculos(char m[][], int linhaE, int colunaE, int linhaE2, int colunaE2, 
+                               int linhaS, int colunaS, String o, boolean faseConcluida) {
+        this.matriz = m;
+        this.linhaEntrada = linhaE;
+        this.colunaEntrada = colunaE;
+        this.linhaEntrada2 = linhaE2;
+        this.colunaEntrada2 = colunaE2;
+        this.linhaSaida = linhaS;
+        this.colunaSaida = colunaS;
         this.op = o;
+        this.primeiraFaseConcluida = faseConcluida;
     }
-    
-    /**
-     * construtor para o estado INICIAL
-     */
+
+    // Construtor para o estado inicial
     public LabirintoObstaculos(int dimensao, String o, int porcentagemObstaculos) {
         this.matriz = new char[dimensao][dimensao];
         this.op = o;
-        
-        int quantidadeObstaculos = (dimensao*dimensao)* porcentagemObstaculos/100;
-        System.out.println(quantidadeObstaculos);
-        
+        this.primeiraFaseConcluida = false;
+
+        int quantidadeObstaculos = (dimensao * dimensao) * porcentagemObstaculos / 100;
         Random gerador = new Random();
 
-        int entrada = gerador.nextInt(dimensao * dimensao); //13
+        int entrada = gerador.nextInt(dimensao * dimensao);
+        int entrada2;
         int saida;
         do {
-            saida = gerador.nextInt(dimensao * dimensao); //3
-        } while (entrada == saida);
+            entrada2 = gerador.nextInt(dimensao * dimensao);
+        } while (entrada2 == entrada);
+        do {
+            saida = gerador.nextInt(dimensao * dimensao);
+        } while (saida == entrada || saida == entrada2);
 
         int contaPosicoes = 0;
         for (int i = 0; i < dimensao; i++) {
@@ -79,6 +70,10 @@ public class LabirintoObstaculos implements Estado, Heuristica {
                     this.matriz[i][j] = 'E';
                     this.linhaEntrada = i;
                     this.colunaEntrada = j;
+                } else if (contaPosicoes == entrada2) {
+                    this.matriz[i][j] = 'F'; // "F" para o segundo "E" (E2)
+                    this.linhaEntrada2 = i;
+                    this.colunaEntrada2 = j;
                 } else if (contaPosicoes == saida) {
                     this.matriz[i][j] = 'S';
                     this.linhaSaida = i;
@@ -94,125 +89,166 @@ public class LabirintoObstaculos implements Estado, Heuristica {
         }
     }
 
-    /**
-     * verifica se o estado e meta
-     */
     @Override
     public boolean ehMeta() {
-    	return this.linhaEntrada == this.linhaSaida && this.colunaEntrada == this.colunaSaida;
+        // Meta: "E" chegou ao "S" e depois "E2" chegou ao "S"
+        return primeiraFaseConcluida && linhaEntrada2 == linhaSaida && colunaEntrada2 == colunaSaida;
     }
 
-    /**
-     * ???
-     *
-     * @return Distancia
-     */
     @Override
     public int custo() {
         return 1;
     }
 
-    /**
-     * ?????
-     *
-     * @return Quantidade
-     */
-    @Override 
+    @Override
     public int h() {
-        int qtd = 0;
-
-        //será que temos heurística
-        return qtd;
+        if (!primeiraFaseConcluida) {
+            return Math.abs(linhaEntrada - linhaSaida) + Math.abs(colunaEntrada - colunaSaida);
+        } else {
+            return Math.abs(linhaEntrada2 - linhaSaida) + Math.abs(colunaEntrada2 - colunaSaida);
+        }
     }
 
-    /**
-     * gera uma lista de sucessores do nodo.
-     */
     @Override
     public List<Estado> sucessores() {
-        List<Estado> visitados = new LinkedList<Estado>(); // a lista de sucessores
-
-        paraCima(visitados);
-        paraBaixo(visitados);
-        paraEsquerda(visitados);
-        paraDireita(visitados);
-        
+        List<Estado> visitados = new LinkedList<>();
+        if (!primeiraFaseConcluida) {
+            // Movimentar apenas o "E"
+            paraCimaE(visitados);
+            paraBaixoE(visitados);
+            paraEsquerdaE(visitados);
+            paraDireitaE(visitados);
+        } else {
+            // Movimentar apenas o "E2"
+            paraCimaE2(visitados);
+            paraBaixoE2(visitados);
+            paraEsquerdaE2(visitados);
+            paraDireitaE2(visitados);
+        }
         return visitados;
     }
 
-    private void paraCima(List<Estado> visitados) {
-        if (this.linhaEntrada == 0 || this.matriz[this.linhaEntrada - 1][this.colunaEntrada] == '@') return; 
+    // Movimentos do "E"
+    private void paraCimaE(List<Estado> visitados) {
+        if (linhaEntrada == 0 || matriz[linhaEntrada - 1][colunaEntrada] == '@' || 
+            (linhaEntrada - 1 == linhaEntrada2 && colunaEntrada == colunaEntrada2)) return;
 
-        char mTemp[][];
-        mTemp = clonar(this.matriz);
-        int linhaTemp = this.linhaEntrada - 1;
-        int colunaTemp = this.colunaEntrada;
-        
-        mTemp[this.linhaEntrada][this.colunaEntrada] = 'O';
-        mTemp[linhaTemp][colunaTemp] = 'E';
-     
-        LabirintoObstaculos novo = new LabirintoObstaculos(mTemp, linhaTemp, colunaTemp, this.linhaSaida, this.colunaSaida, "Movendo para cima");
+        char mTemp[][] = clonar(matriz);
+        int linhaTemp = linhaEntrada - 1;
+        mTemp[linhaEntrada][colunaEntrada] = 'O';
+        mTemp[linhaTemp][colunaEntrada] = 'E';
+
+        boolean faseConcluida = (linhaTemp == linhaSaida && colunaEntrada == colunaSaida);
+        LabirintoObstaculos novo = new LabirintoObstaculos(mTemp, linhaTemp, colunaEntrada, 
+            linhaEntrada2, colunaEntrada2, linhaSaida, colunaSaida, "Movendo E para cima", faseConcluida);
         if (!visitados.contains(novo)) visitados.add(novo);
     }
 
-    private void paraBaixo(List<Estado> visitados) {
-        if (this.linhaEntrada == this.matriz.length-1 || this.matriz[this.linhaEntrada + 1][this.colunaEntrada] == '@') return;
+    private void paraBaixoE(List<Estado> visitados) {
+        if (linhaEntrada == matriz.length - 1 || matriz[linhaEntrada + 1][colunaEntrada] == '@' || 
+            (linhaEntrada + 1 == linhaEntrada2 && colunaEntrada == colunaEntrada2)) return;
 
-        char mTemp[][];
-        mTemp = clonar(this.matriz);
-        int linhaTemp = this.linhaEntrada + 1;
-        int colunaTemp = this.colunaEntrada;
-        
-        mTemp[this.linhaEntrada][this.colunaEntrada] = 'O';
-        mTemp[linhaTemp][colunaTemp] = 'E';
-               
-        LabirintoObstaculos novo = new LabirintoObstaculos(mTemp, linhaTemp, colunaTemp, this.linhaSaida, this.colunaSaida, "Movendo para baixo");
+        char mTemp[][] = clonar(matriz);
+        int linhaTemp = linhaEntrada + 1;
+        mTemp[linhaEntrada][colunaEntrada] = 'O';
+        mTemp[linhaTemp][colunaEntrada] = 'E';
+
+        boolean faseConcluida = (linhaTemp == linhaSaida && colunaEntrada == colunaSaida);
+        LabirintoObstaculos novo = new LabirintoObstaculos(mTemp, linhaTemp, colunaEntrada, 
+            linhaEntrada2, colunaEntrada2, linhaSaida, colunaSaida, "Movendo E para baixo", faseConcluida);
         if (!visitados.contains(novo)) visitados.add(novo);
     }
 
-    private void paraEsquerda(List<Estado> visitados) {
-        if (this.colunaEntrada == 0 || this.matriz[this.linhaEntrada][this.colunaEntrada - 1] == '@') return;
+    private void paraEsquerdaE(List<Estado> visitados) {
+        if (colunaEntrada == 0 || matriz[linhaEntrada][colunaEntrada - 1] == '@' || 
+            (linhaEntrada == linhaEntrada2 && colunaEntrada - 1 == colunaEntrada2)) return;
 
-        char mTemp[][];
-        mTemp = clonar(this.matriz);
-        int linhaTemp = this.linhaEntrada;
-        int colunaTemp = this.colunaEntrada - 1;
-        
-        mTemp[this.linhaEntrada][this.colunaEntrada] = 'O';
-        mTemp[linhaTemp][colunaTemp] = 'E';
-     
-        LabirintoObstaculos novo = new LabirintoObstaculos(mTemp, linhaTemp, colunaTemp, this.linhaSaida, this.colunaSaida,"Movendo para esquerda");
+        char mTemp[][] = clonar(matriz);
+        int colunaTemp = colunaEntrada - 1;
+        mTemp[linhaEntrada][colunaEntrada] = 'O';
+        mTemp[linhaEntrada][colunaTemp] = 'E';
+
+        boolean faseConcluida = (linhaEntrada == linhaSaida && colunaTemp == colunaSaida);
+        LabirintoObstaculos novo = new LabirintoObstaculos(mTemp, linhaEntrada, colunaTemp, 
+            linhaEntrada2, colunaEntrada2, linhaSaida, colunaSaida, "Movendo E para esquerda", faseConcluida);
         if (!visitados.contains(novo)) visitados.add(novo);
     }
 
-    private void paraDireita(List<Estado> visitados) {
-        if (this.colunaEntrada == this.matriz.length-1 || this.matriz[this.linhaEntrada][this.colunaEntrada + 1] == '@') return;
-        
-        char mTemp[][];
-        mTemp = clonar(this.matriz);
-        int linhaTemp = this.linhaEntrada;
-        int colunaTemp = this.colunaEntrada + 1;
-        
-        mTemp[this.linhaEntrada][this.colunaEntrada] = 'O';
-        mTemp[linhaTemp][colunaTemp] = 'E';
-               
-        LabirintoObstaculos novo = new LabirintoObstaculos(mTemp, linhaTemp, colunaTemp, this.linhaSaida, this.colunaSaida,"Movendo para direita");
+    private void paraDireitaE(List<Estado> visitados) {
+        if (colunaEntrada == matriz[0].length - 1 || matriz[linhaEntrada][colunaEntrada + 1] == '@' || 
+            (linhaEntrada == linhaEntrada2 && colunaEntrada + 1 == colunaEntrada2)) return;
+
+        char mTemp[][] = clonar(matriz);
+        int colunaTemp = colunaEntrada + 1;
+        mTemp[linhaEntrada][colunaEntrada] = 'O';
+        mTemp[linhaEntrada][colunaTemp] = 'E';
+
+        boolean faseConcluida = (linhaEntrada == linhaSaida && colunaTemp == colunaSaida);
+        LabirintoObstaculos novo = new LabirintoObstaculos(mTemp, linhaEntrada, colunaTemp, 
+            linhaEntrada2, colunaEntrada2, linhaSaida, colunaSaida, "Movendo E para direita", faseConcluida);
         if (!visitados.contains(novo)) visitados.add(novo);
     }
 
-    
-    /**
-     * verifica se um estado e igual a outro (usado para poda)
-     */
+    // Movimentos do "E2"
+    private void paraCimaE2(List<Estado> visitados) {
+        if (linhaEntrada2 == 0 || matriz[linhaEntrada2 - 1][colunaEntrada2] == '@') return;
+
+        char mTemp[][] = clonar(matriz);
+        int linhaTemp = linhaEntrada2 - 1;
+        mTemp[linhaEntrada2][colunaEntrada2] = 'O';
+        mTemp[linhaTemp][colunaEntrada2] = 'F';
+
+        LabirintoObstaculos novo = new LabirintoObstaculos(mTemp, linhaEntrada, colunaEntrada, 
+            linhaTemp, colunaEntrada2, linhaSaida, colunaSaida, "Movendo E2 para cima", true);
+        if (!visitados.contains(novo)) visitados.add(novo);
+    }
+
+    private void paraBaixoE2(List<Estado> visitados) {
+        if (linhaEntrada2 == matriz.length - 1 || matriz[linhaEntrada2 + 1][colunaEntrada2] == '@') return;
+
+        char mTemp[][] = clonar(matriz);
+        int linhaTemp = linhaEntrada2 + 1;
+        mTemp[linhaEntrada2][colunaEntrada2] = 'O';
+        mTemp[linhaTemp][colunaEntrada2] = 'F';
+
+        LabirintoObstaculos novo = new LabirintoObstaculos(mTemp, linhaEntrada, colunaEntrada, 
+            linhaTemp, colunaEntrada2, linhaSaida, colunaSaida, "Movendo E2 para baixo", true);
+        if (!visitados.contains(novo)) visitados.add(novo);
+    }
+
+    private void paraEsquerdaE2(List<Estado> visitados) {
+        if (colunaEntrada2 == 0 || matriz[linhaEntrada2][colunaEntrada2 - 1] == '@') return;
+
+        char mTemp[][] = clonar(matriz);
+        int colunaTemp = colunaEntrada2 - 1;
+        mTemp[linhaEntrada2][colunaEntrada2] = 'O';
+        mTemp[linhaEntrada2][colunaTemp] = 'F';
+
+        LabirintoObstaculos novo = new LabirintoObstaculos(mTemp, linhaEntrada, colunaEntrada, 
+            linhaEntrada2, colunaTemp, linhaSaida, colunaSaida, "Movendo E2 para esquerda", true);
+        if (!visitados.contains(novo)) visitados.add(novo);
+    }
+
+    private void paraDireitaE2(List<Estado> visitados) {
+        if (colunaEntrada2 == matriz[0].length - 1 || matriz[linhaEntrada2][colunaEntrada2 + 1] == '@') return;
+
+        char mTemp[][] = clonar(matriz);
+        int colunaTemp = colunaEntrada2 + 1;
+        mTemp[linhaEntrada2][colunaEntrada2] = 'O';
+        mTemp[linhaEntrada2][colunaTemp] = 'F';
+
+        LabirintoObstaculos novo = new LabirintoObstaculos(mTemp, linhaEntrada, colunaEntrada, 
+            linhaEntrada2, colunaTemp, linhaSaida, colunaSaida, "Movendo E2 para direita", true);
+        if (!visitados.contains(novo)) visitados.add(novo);
+    }
+
     @Override
     public boolean equals(Object o) {
         if (o instanceof LabirintoObstaculos) {
             LabirintoObstaculos e = (LabirintoObstaculos) o;
-            for (int i = 0; i < e.matriz.length; i++) {
-                for (int j = 0; j < e.matriz.length; j++) {
-                    if (e.matriz[i][j] != this.matriz[i][j]) {
-                        return false;
-                    }
+            for (int i = 0; i < matriz.length; i++) {
+                for (int j = 0; j < matriz[0].length; j++) {
+                    if (e.matriz[i][j] != this.matriz[i][j]) return false;
                 }
             }
             return true;
@@ -220,16 +256,12 @@ public class LabirintoObstaculos implements Estado, Heuristica {
         return false;
     }
 
-    /**
-     * retorna o hashCode desse estado (usado para poda, conjunto de fechados)
-     */
     @Override
     public int hashCode() {
         String estado = "";
-        
-        for (int i = 0; i < this.matriz.length; i++) {
-            for (int j = 0; j < this.matriz.length; j++) {
-                estado = estado + this.matriz[i][j];
+        for (int i = 0; i < matriz.length; i++) {
+            for (int j = 0; j < matriz[0].length; j++) {
+                estado += matriz[i][j];
             }
         }
         return estado.hashCode();
@@ -239,15 +271,15 @@ public class LabirintoObstaculos implements Estado, Heuristica {
     public String toString() {
         StringBuffer resultado = new StringBuffer();
         for (int i = 0; i < matriz.length; i++) {
-            for (int j = 0; j < matriz.length; j++) {
-                resultado.append(this.matriz[i][j]);
-                resultado.append("\t");
+            for (int j = 0; j < matriz[0].length; j++) {
+                resultado.append(matriz[i][j]).append("\t");
             }
             resultado.append("\n");
         }
-        resultado.append("Posição Entrada: " + this.linhaEntrada + "," + this.colunaEntrada +"\n");
-        resultado.append("Posição Saida: " + this.linhaSaida + "," + this.colunaSaida +"\n");
-        return "\n"+ op + "\n" + resultado + "\n\n";
+        resultado.append("Posição E: ").append(linhaEntrada).append(",").append(colunaEntrada).append("\n");
+        resultado.append("Posição E2: ").append(linhaEntrada2).append(",").append(colunaEntrada2).append("\n");
+        resultado.append("Posição Saída: ").append(linhaSaida).append(",").append(colunaSaida).append("\n");
+        return "\n" + op + "\n" + resultado + "\n\n";
     }
 
     public static void main(String[] a) {
@@ -257,42 +289,48 @@ public class LabirintoObstaculos implements Estado, Heuristica {
         int qualMetodo;
         Nodo n;
         try {
-            dimensao = Integer.parseInt(JOptionPane.showInputDialog(null,"Entre com a dimensão do Puzzle!"));
-            porcentagemObstaculos = Integer.parseInt(JOptionPane.showInputDialog(null,"Porcentagem de obstáculos!"));
-            qualMetodo = Integer.parseInt(JOptionPane.showInputDialog(null,"1 - Profundidade\n2 - Largura\n3 - AEstrela"));
+            dimensao = Integer.parseInt(JOptionPane.showInputDialog("Entre com a dimensão do Puzzle!"));
+            porcentagemObstaculos = Integer.parseInt(JOptionPane.showInputDialog("Porcentagem de obstáculos!"));
+            qualMetodo = Integer.parseInt(JOptionPane.showInputDialog("1 - Profundidade\n2 - Largura\n3 - AEstrela"));
             estadoInicial = new LabirintoObstaculos(dimensao, "estado inicial", porcentagemObstaculos);
-            
+
             switch (qualMetodo) {
-                case 1: 
-                        System.out.println("busca em PROFUNDIDADE");
-                        n = new BuscaProfundidade(new MostraStatusConsole()).busca(estadoInicial);
-                        break;
-                case 2: 
-                        System.out.println("busca em LARGURA");
-                        n = new BuscaLargura(new MostraStatusConsole()).busca(estadoInicial);
-                        break;
+                case 1:
+                    System.out.println("busca em PROFUNDIDADE");
+                    n = new BuscaProfundidade(new MostraStatusConsole()).busca(estadoInicial);
+                    break;
+                case 2:
+                    System.out.println("busca em LARGURA");
+                    n = new BuscaLargura(new MostraStatusConsole()).busca(estadoInicial);
+                    break;
                 case 3:
-                        System.out.println("busca em AEstrela");
-                        n = new AEstrela(new MostraStatusConsole()).busca(estadoInicial);
-                        break;
+                    System.out.println("busca em AEstrela");
+                    n = new AEstrela(new MostraStatusConsole()).busca(estadoInicial);
+                    break;
                 case 4:
-                        System.out.println("busca em SUBIDA MONTANHA");
-                        n = new SubidaMontanha(new MostraStatusConsole()).busca(estadoInicial);
-                        break;
-                default: 
-                        n = null;
-                        JOptionPane.showMessageDialog(null, "Método não implementado");
+                    System.out.println("busca em SUBIDA MONTANHA");
+                    n = new SubidaMontanha(new MostraStatusConsole()).busca(estadoInicial);
+                    break;
+                default:
+                    n = null;
+                    JOptionPane.showMessageDialog(null, "Método não implementado");
             }
-//            Nodo n = new AEstrela(new MostraStatusConsole()).busca(estadoInicial); // Com Status de andamento
             if (n == null) {
-                System.out.println("sem solucao!");
+                System.out.println("sem solução!");
                 System.out.println(estadoInicial);
             } else {
-                System.out.println("solucao:\n" + n.montaCaminho() + "\n\n");
+                System.out.println("solução:\n" + n.montaCaminho() + "\n\n");
             }
         } catch (Exception e) {
-            JOptionPane.showMessageDialog(null,e.getMessage());
+            JOptionPane.showMessageDialog(null, e.getMessage());
         }
         System.exit(0);
+    }
+
+    @Override
+    public String getDescricao() {
+        return "O jogo do labirinto é uma matriz NxM com duas entradas (E e E2) e uma saída (S).\n" +
+               "O primeiro 'E' deve chegar ao 'S', e só depois o 'F' começa a se mover.\n" +
+               "Nenhum 'E' pode passar por '@' ou pelo outro 'F'.";
     }
 }
